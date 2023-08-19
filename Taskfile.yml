@@ -1,0 +1,22 @@
+version: '3'
+
+tasks:
+  generate-docs:
+    descrition: Generate OpenAPI documention in the docs folder.
+    cmds:
+      - swag init --parseDependency --parseInternal --generalInfo ./cmd/main.go
+    silent: false
+
+  start-build:
+    description: Build and run system containers using Docker Compose.
+    cmds:
+      - task: generate-docs
+      - sudo docker compose -f ./infrastructure/docker-compose.yml --env-file .env up --build
+    silent: false
+
+  start:
+    description: Run system containers using Docker Compose.
+    cmds:
+      - task: generate-docs
+      - sudo docker compose -f ./infrastructure/docker-compose.yml --env-file .env up
+    silent: false
