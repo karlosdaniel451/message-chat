@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/karlosdaniel451/go-rest-api-template/domain/model"
+	"github.com/karlosdaniel451/message-chat/domain/model"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -33,7 +33,14 @@ func Connect() error {
 		return err
 	}
 
-	err = DB.AutoMigrate(&model.Task{}) // Setup other models here
+	err = DB.AutoMigrate(
+		&model.GroupMessage{},
+		&model.Group{},
+		&model.PrivateMessage{},
+		&model.User{},
+		// Setup other models here
+	)
+
 	if err != nil {
 		return err
 	}

@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "./protobuf";
+
+message PrivateMessage {
+    string id = 1;
+	string sender_id = 2;
+	string receiver_id = 3;
+    string text_content = 4;
+    google.protobuf.Timestamp created_at = 5;
+    google.protobuf.Timestamp updated_at = 6;
+    google.protobuf.Timestamp deleted_at = 7;
+}
+
+message GroupMessage {
+    string id = 1;
+	string sender_id = 2;
+	string group_id = 3;
+    string text_content = 4;
+    google.protobuf.Timestamp created_at = 5;
+    google.protobuf.Timestamp updated_at = 6;
+    google.protobuf.Timestamp deleted_at = 7;
+}
+
+message User {
+    string id = 1;
+	string name = 2;
+	string email_address = 3;
+    repeated PrivateMessage sent_private_messages = 4;
+    google.protobuf.Timestamp created_at = 5;
+    google.protobuf.Timestamp updated_at = 6;
+    google.protobuf.Timestamp deleted_at = 7;
+}
+
+message Group {
+    string id = 1;
+	string name = 2;
+	string description = 3;
+    repeated PrivateMessage received_= 4;
+    google.protobuf.Timestamp created_at = 5;
+    google.protobuf.Timestamp updated_at = 6;
+    google.protobuf.Timestamp deleted_at = 7;
+}
