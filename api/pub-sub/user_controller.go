@@ -13,12 +13,17 @@ import (
 )
 
 type UserController struct {
-	natsConn nats.Conn
-	useCase  usecase.UserUseCase
+	natsConn            nats.Conn
+	useCase             usecase.UserUseCase
+	groupMessageUseCase usecase.GroupMessageUseCase
 }
 
-func NewUserController(useCase usecase.UserUseCase) *UserController{
-	return &UserController{useCase: useCase}
+func NewUserController(
+	useCase usecase.UserUseCase,
+	groupMessageUseCase usecase.GroupMessageUseCase,
+) *UserController {
+
+	return &UserController{useCase: useCase, groupMessageUseCase: groupMessageUseCase}
 }
 
 func (controller *UserController) SendMessage(
@@ -26,6 +31,7 @@ func (controller *UserController) SendMessage(
 ) (*model.GroupMessage, error) {
 
 	createdGroupMessage, err := controller.useCase.SendMessageToGroup(groupMessage)
+
 	if err != nil {
 		return nil, fmt.Errorf("error when inserting group message to database: %s", err)
 	}

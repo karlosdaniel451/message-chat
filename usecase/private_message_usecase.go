@@ -16,7 +16,7 @@ type PrivateMessageUseCaselImpl struct {
 	repository repository.PrivateMessageRepository
 }
 
-func NewTaskUseCaseImpl(
+func NewPrivateMessageUseCaseImpl(
 	repository repository.PrivateMessageRepository,
 ) PrivateMessageUseCaselImpl {
 

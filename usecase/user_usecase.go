@@ -1,7 +1,10 @@
 package usecase
 
 import (
+	"errors"
+
 	"github.com/karlosdaniel451/message-chat/domain/model"
+	"github.com/karlosdaniel451/message-chat/errs"
 	"github.com/karlosdaniel451/message-chat/repository"
 )
 
@@ -13,18 +16,27 @@ type UserUseCase interface {
 	DeleteById(id uint) error
 	GetAll() ([]*model.User, error)
 
+	SendMessageToUser(message *model.PrivateMessage) (*model.PrivateMessage, error)
 	SendMessageToGroup(message *model.GroupMessage) (*model.GroupMessage, error)
 }
 
 type UserUseCaseImpl struct {
-	repository repository.UserRepository
+	repository           repository.UserRepository
+	privateMessageUseCase PrivateMessageUseCase
+	groupMessageUseCase  GroupMessageUseCase
 }
 
 func NewUserUseCaseImpl(
 	repository repository.UserRepository,
+	privateMessageUseCase PrivateMessageUseCase,
+	groupMessageUseCase GroupMessageUseCase,
 ) UserUseCaseImpl {
 
-	return UserUseCaseImpl{repository: repository}
+	return UserUseCaseImpl{
+		repository:           repository,
+		privateMessageUseCase: privateMessageUseCase,
+		groupMessageUseCase:  groupMessageUseCase,
+	}
 }
 
 func (useCase UserUseCaseImpl) Create(user *model.User) (*model.User, error) {
@@ -51,10 +63,30 @@ func (useCase UserUseCaseImpl) GetAll() ([]*model.User, error) {
 	return useCase.repository.GetAll()
 }
 
+func (useCase UserUseCaseImpl) SendMessageToUser(
+	message *model.PrivateMessage,
+) (*model.PrivateMessage, error) {
+
+	_, err := useCase.GetById(message.ReceiverId)
+	if err != nil {
+		if errors.As(err, &errs.NotFoundError{}) {
+			return nil, errs.NotFoundError{Message: "receiver user not found"}
+		}
+	}
+
+	return useCase.privateMessageUseCase.Create(message)
+}
+
 func (useCase UserUseCaseImpl) SendMessageToGroup(
 	message *model.GroupMessage,
-	groupMessageRepository repository.GroupMessageRepository,
 ) (*model.GroupMessage, error) {
 
-	return groupMessageRepository.Create(message)
+	_, err := useCase.GetById(message.GroupId)
+	if err != nil {
+		if errors.As(err, &errs.NotFoundError{}) {
+			return nil, errs.NotFoundError{Message: "group not found"}
+		}
+	}
+
+	return useCase.groupMessageUseCase.Create(message)
 }
