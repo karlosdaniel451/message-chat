@@ -6,222 +6,217 @@ import (
 	"log"
 	"strconv"
 
+	"github.com/apache/pulsar-client-go/pulsar"
+	conversions "github.com/karlosdaniel451/message-chat/api"
 	"github.com/karlosdaniel451/message-chat/api/protobuf"
 	"github.com/karlosdaniel451/message-chat/domain/model"
 	"github.com/karlosdaniel451/message-chat/usecase"
-	"github.com/nats-io/nats.go"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
-	"gorm.io/gorm"
 )
 
 type UserController struct {
-	natsConn            nats.Conn
+	pulsarClient        pulsar.Client
 	useCase             usecase.UserUseCase
 	groupMessageUseCase usecase.GroupMessageUseCase
 }
 
-func NewUserController(
+func NewUserPubController(
+	pulsarClient pulsar.Client,
 	useCase usecase.UserUseCase,
 	groupMessageUseCase usecase.GroupMessageUseCase,
 ) *UserController {
 
-	return &UserController{useCase: useCase, groupMessageUseCase: groupMessageUseCase}
+	return &UserController{
+		pulsarClient:        pulsarClient,
+		useCase:             useCase,
+		groupMessageUseCase: groupMessageUseCase,
+	}
 }
 
-func (controller *UserController) SendMessage(
+func (controller *UserController) SendMessageToUser(
+	ctx context.Context,
+	privateMessage *model.PrivateMessage,
+) (*model.PrivateMessage, error) {
+
+	createdPrivateMessage, err := controller.useCase.SendMessageToUser(privateMessage)
+	if err != nil {
+		return nil, fmt.Errorf("error when inserting private message to database: %s", err)
+	}
+
+	protoMessage, err := conversions.ModelPrivateMessagetoProto(privateMessage)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"error when serializing convertion private message model to protobuf model: %s",
+			err,
+		)
+	}
+
+	serializedMessage, err := proto.Marshal(protoMessage)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"error when serializing groupMessage protobuf model: %s",
+			err,
+		)
+	}
+
+	// The topic name is determined by the receiving User id.
+	topic := strconv.FormatUint(uint64(privateMessage.ID), 10)
+
+	producer, err := controller.pulsarClient.CreateProducer(pulsar.ProducerOptions{
+		Topic: topic,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error when creating Pulsar producer: %s", err)
+	}
+
+	defer producer.Close()
+
+	producer.Send(ctx, &pulsar.ProducerMessage{
+		Payload: serializedMessage,
+	})
+
+	return createdPrivateMessage, nil
+}
+
+func (controller *UserController) SendMessageToGroup(
+	ctx context.Context,
 	groupMessage *model.GroupMessage,
 ) (*model.GroupMessage, error) {
 
 	createdGroupMessage, err := controller.useCase.SendMessageToGroup(groupMessage)
-
 	if err != nil {
 		return nil, fmt.Errorf("error when inserting group message to database: %s", err)
 	}
 
-	serializedGroupMessage, err := proto.Marshal(&protobuf.GroupMessage{
-		Id:          strconv.FormatUint(uint64(createdGroupMessage.ID), 10),
-		SenderId:    strconv.FormatUint(uint64(createdGroupMessage.SenderId), 10),
-		GroupId:     strconv.FormatUint(uint64(createdGroupMessage.GroupId), 10),
-		TextContent: createdGroupMessage.TextContent,
-		CreatedAt:   timestamppb.New(createdGroupMessage.CreatedAt),
-		UpdatedAt:   timestamppb.New(createdGroupMessage.UpdatedAt),
-		DeletedAt:   timestamppb.New(createdGroupMessage.DeletedAt.Time),
+	protoMessage, err := conversions.ModelGroupMessagetoProto(groupMessage)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"error when serializing convertion GroupMessage model to protobuf model: %s",
+			err,
+		)
+	}
+
+	serializedMessage, err := proto.Marshal(protoMessage)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"error when serializing GroupMessage protobuf model: %s",
+			err,
+		)
+	}
+
+	// The topic name is determined by the receiving Group id.
+	topic := strconv.FormatUint(uint64(groupMessage.GroupId), 10)
+
+	producer, err := controller.pulsarClient.CreateProducer(pulsar.ProducerOptions{
+		Topic: topic,
 	})
-
 	if err != nil {
-		return nil, fmt.Errorf("error when serializing group message to protobuf: %s", err)
+		return nil, fmt.Errorf("error when creating Pulsar producer: %s", err)
 	}
 
-	err = controller.natsConn.Publish(
-		strconv.FormatUint(uint64(createdGroupMessage.GroupId), 10),
-		serializedGroupMessage,
-	)
+	defer producer.Close()
 
-	if err != nil {
-		return nil, fmt.Errorf("error when publishing group message: %s", err)
-	}
+	producer.Send(ctx, &pulsar.ProducerMessage{
+		Payload: serializedMessage,
+	})
 
 	return createdGroupMessage, nil
 }
 
-/*
+// Return a read-only channel with all the messages sent from the User identified by
+// `senderId` to the User identified by `receiverId`.
 func (controller *UserController) ConnectToUser(
 	senderId uint, receiverId uint,
-) chan model.PrivateMessage {
+) <-chan model.PrivateMessage {
 
-	natsMsgChannel := make(chan *nats.Msg)
-	privateMessagesChan := make(chan model.PrivateMessage)
+	privateMessagesChannel := make(chan model.PrivateMessage)
+	pulsarMessagesChannel := make(chan pulsar.ConsumerMessage)
 
-	controller.natsConn.ChanSubscribe(
-		strconv.FormatUint(uint64(receiverId), 10), natsMsgChannel,
-	)
+	// The topic is determined by the id of the User receiving a message.
+	topic := strconv.FormatUint(uint64(receiverId), 10)
+
+	consumer, err := controller.pulsarClient.Subscribe(pulsar.ConsumerOptions{
+		Topic:            topic,
+		SubscriptionName: fmt.Sprintf("%d-%d", senderId, receiverId),
+		MessageChannel:   pulsarMessagesChannel,
+	})
+	if err != nil {
+		log.Fatalf("error when subscribing to a Pulsar topic: %s", err)
+	}
+	defer consumer.Close()
 
 	go func() {
-		for natsMsg := range natsMsgChannel {
-			serializedMessage := protobuf.PrivateMessage{}
+		defer close(privateMessagesChannel)
 
-			proto.Unmarshal(natsMsg.Data, &serializedMessage)
+		for pulsarMessage := range pulsarMessagesChannel {
+			var protobufMessage protobuf.PrivateMessage
+
+			proto.Unmarshal(pulsarMessage.Payload(), &protobufMessage)
 
 			// Filter the messages received from other users
-			if serializedMessage.SenderId != strconv.FormatUint(uint64(senderId), 10){
+			if protobufMessage.SenderId != strconv.FormatUint(uint64(senderId), 10) {
+				// return
 				continue
 			}
 
-			messageId, err := strconv.ParseUint(serializedMessage.Id, 10, 64)
+			modelMessage, err := conversions.ProtoPrivateMessageToModel(&protobufMessage)
 			if err != nil {
-				panic(err)
+				log.Printf("error when converting protobuf PrivateMessage to Model: %s",
+					err)
+				continue
 			}
 
-			senderId, err := strconv.ParseUint(serializedMessage.SenderId, 10, 64)
-			if err != nil {
-				panic(err)
-			}
-
-			receiverId, err := strconv.ParseUint(serializedMessage.ReceiverId, 10, 64)
-			if err != nil {
-				panic(err)
-			}
-
-			groupMessage := model.PrivateMessage{
-				Model: gorm.Model{
-					ID:        uint(messageId),
-					CreatedAt: serializedMessage.CreatedAt.AsTime(),
-					UpdatedAt: serializedMessage.UpdatedAt.AsTime(),
-					DeletedAt: gorm.DeletedAt{Time: serializedMessage.DeletedAt.AsTime()},
-				},
-				TextContent: serializedMessage.GetTextContent(),
-				ReceiverId:  uint(receiverId),
-				SenderId:    uint(senderId),
-			}
-			privateMessagesChan <- groupMessage
+			privateMessagesChannel <- *modelMessage
 		}
 	}()
 
-	return privateMessagesChan
+	return privateMessagesChannel
 }
-*/
 
-func (controller *UserController) ConnectToUser(
-	senderId uint, receiverId uint,
-) chan model.PrivateMessage {
+func (controller *UserController) ConnectToGroup(
+	senderId uint, groupId uint,
+) <-chan model.GroupMessage {
 
-	privateMessagesChan := make(chan model.PrivateMessage)
+	groupMessagesChannel := make(chan model.GroupMessage)
+	pulsarMessagesChannel := make(chan pulsar.ConsumerMessage)
 
-	sub, err := controller.natsConn.SubscribeSync(
-		strconv.FormatUint(uint64(receiverId), 10))
+	// The topic is determined by the id of the Group receiving a message.
+	topic := strconv.FormatUint(uint64(groupId), 10)
 
+	consumer, err := controller.pulsarClient.Subscribe(pulsar.ConsumerOptions{
+		Topic:            topic,
+		SubscriptionName: fmt.Sprintf("%d-%d", senderId, groupId),
+		MessageChannel:   pulsarMessagesChannel,
+	})
 	if err != nil {
-		log.Fatalf("error when subscribing to a NATS subject: %s", err)
+		log.Fatalf("error when subscribing to a Pulsar topic: %s", err)
 	}
 
+	defer consumer.Close()
+
 	go func() {
-		for {
-			natsMsg, err := sub.NextMsgWithContext(context.Background())
+		defer close(groupMessagesChannel)
+
+		for pulsarMessage := range pulsarMessagesChannel {
+			var protobufMessage protobuf.GroupMessage
+
+			proto.Unmarshal(pulsarMessage.Payload(), &protobufMessage)
+
+			// // Filter the messages received from other users
+			// if protobufMessage.SenderId != strconv.FormatUint(uint64(senderId), 10) {
+			// 	return
+			// }
+
+			modelMessage, err := conversions.ProtoGroupMessageToModel(&protobufMessage)
 			if err != nil {
-				log.Fatalf("error when trying to receive a NATS message: %s", err)
+				log.Printf("error when converting protobuf GroupMessage to Model: %s",
+					err)
+				continue
 			}
 
-			serializedMessage := protobuf.PrivateMessage{}
-
-			proto.Unmarshal(natsMsg.Data, &serializedMessage)
-
-			// Filter the messages received from other users
-			if serializedMessage.SenderId != strconv.FormatUint(uint64(senderId), 10) {
-				return
-			}
-
-			messageId, err := strconv.ParseUint(serializedMessage.Id, 10, 64)
-			if err != nil {
-				panic(err)
-			}
-
-			senderId, err := strconv.ParseUint(serializedMessage.SenderId, 10, 64)
-			if err != nil {
-				panic(err)
-			}
-
-			receiverId, err := strconv.ParseUint(serializedMessage.ReceiverId, 10, 64)
-			if err != nil {
-				panic(err)
-			}
-
-			// Create the receive Private Message
-			receivedMessage := model.PrivateMessage{
-				Model: gorm.Model{
-					ID:        uint(messageId),
-					CreatedAt: serializedMessage.CreatedAt.AsTime(),
-					UpdatedAt: serializedMessage.UpdatedAt.AsTime(),
-					DeletedAt: gorm.DeletedAt{Time: serializedMessage.DeletedAt.AsTime()},
-				},
-				TextContent: serializedMessage.GetTextContent(),
-				ReceiverId:  uint(receiverId),
-				SenderId:    uint(senderId),
-			}
-			privateMessagesChan <- receivedMessage
+			groupMessagesChannel <- *modelMessage
 		}
 	}()
 
-	return privateMessagesChan
-}
-
-func (controller *UserController) ConnectToGroup(userId uint) chan model.GroupMessage {
-	natsMsgChannel := make(chan *nats.Msg)
-	privateMessagesChan := make(chan model.GroupMessage)
-
-	controller.natsConn.ChanSubscribe(
-		strconv.FormatUint(uint64(userId), 10), natsMsgChannel,
-	)
-
-	go func() {
-		for natsMsg := range natsMsgChannel {
-			serializedMessage := protobuf.GroupMessage{}
-
-			proto.Unmarshal(natsMsg.Data, &serializedMessage)
-
-			messageId, err := strconv.ParseUint(serializedMessage.GroupId, 10, 64)
-			if err != nil {
-				panic(err)
-			}
-			senderId, err := strconv.ParseUint(serializedMessage.SenderId, 10, 64)
-			if err != nil {
-				panic(err)
-			}
-
-			groupMessage := model.GroupMessage{
-				Model: gorm.Model{
-					ID:        uint(messageId),
-					CreatedAt: serializedMessage.CreatedAt.AsTime(),
-					UpdatedAt: serializedMessage.UpdatedAt.AsTime(),
-					DeletedAt: gorm.DeletedAt{Time: serializedMessage.DeletedAt.AsTime()},
-				},
-				TextContent: serializedMessage.GetTextContent(),
-				GroupId:     userId,
-				SenderId:    uint(senderId),
-			}
-			privateMessagesChan <- groupMessage
-		}
-	}()
-
-	return privateMessagesChan
+	return groupMessagesChannel
 }

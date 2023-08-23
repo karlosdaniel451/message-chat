@@ -1,45 +1,17 @@
-version: "3.8"
+version: '3.8'
+
+networks:
+  net:
+    driver: bridge
 
 volumes:
+  pulsardata:
+  pulsarconf:
+  pulsar-manager:
   api-db-data:
 
 
-networks:
-  api-network:
-  nats-network:
-
-
 services:
-  broker-server:
-    image: nats:latest
-    ports:
-      - "4222:4222"
-      - "8222:8222"
-      - "6222:6222"
-    networks:
-      - nats-network
-
-  db:
-    image: postgres:15.3-bullseye
-    environment:
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=${DB_NAME}
-    volumes:
-      - api-db-data:/var/lib/postgresql/data
-      - type: tmpfs
-        target: /dev/shm
-    ports:
-      - "${DB_PORT}:5432"
-    healthcheck:
-      test: pg_isready -U ${DB_USER} -h ${DB_HOST} -p ${DB_PORT} --timeout=5
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
-    networks:
-      - api-network
-
   # api:
   #   build:
   #     context: ../
@@ -60,4 +32,43 @@ services:
   #   command: >
   #     bash -c "/usr/bin/psql postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT} -c 'drop database if exists ${DB_NAME}' && /usr/bin/psql postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT} -c 'create database ${DB_NAME}'"
   #   networks:
-  #     - api-network
+  #     - net
+
+  db:
+    image: postgres:15.3-bullseye
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - api-db-data:/var/lib/postgresql/data
+      - type: tmpfs
+        target: /dev/shm
+    healthcheck:
+      test: pg_isready -U ${DB_USER} -h ${DB_HOST} -p ${DB_PORT} --timeout=5
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - net
+
+  broker-server:
+    image: apachepulsar/pulsar:3.1.0
+    command: bin/pulsar standalone
+    ports:
+      - 6650:6650
+      - 8080:8080
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://pulsar:8080/metrics/" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    volumes:
+      - pulsardata:/pulsar/data
+      - pulsarconf:/pulsar/conf
+    networks:
+      - net

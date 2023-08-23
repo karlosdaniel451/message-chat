@@ -1,15 +1,15 @@
 package pubsubcontroller
 
 import (
-	"fmt"
-	"strconv"
+	// "fmt"
+	// "strconv"
 
-	"github.com/karlosdaniel451/message-chat/api/protobuf"
-	"github.com/karlosdaniel451/message-chat/domain/model"
+	// "github.com/karlosdaniel451/message-chat/api/protobuf"
+	// "github.com/karlosdaniel451/message-chat/domain/model"
 	"github.com/karlosdaniel451/message-chat/usecase"
 	"github.com/nats-io/nats.go"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	// "google.golang.org/protobuf/proto"
+	// "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type GroupMessageController struct {
@@ -21,6 +21,7 @@ func NewGroupMessageController(useCase usecase.GroupMessageUseCase) *GroupMessag
 	return &GroupMessageController{useCase: useCase}
 }
 
+/*
 func (controller *GroupMessageController) SendMessage(
 	groupMessage *model.GroupMessage,
 ) (*model.GroupMessage, error) {
@@ -55,10 +56,4 @@ func (controller *GroupMessageController) SendMessage(
 
 	return createdGroupMessage, nil
 }
-
-// func (controller *GroupMessageController) ReceiveMessages(msg *nats.Msg) *model.GroupMessage {
-// 	// TODO
-// 	controller.natsConn.ChanSubscribe()
-
-// 	return nil
-// }
+*/

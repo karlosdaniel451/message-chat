@@ -1,6 +1,8 @@
 package model
 
-import "gorm.io/gorm"
+import (
+	"gorm.io/gorm"
+)
 
 type CreatePrivateMessage struct {
 	TextContent string `json:"text_content"`

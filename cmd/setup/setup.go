@@ -39,15 +39,18 @@ func Setup() {
 		panic(err)
 	}
 
+	// Try to connect to the database server.
 	err := db.Connect()
 	if err != nil {
 		log.Fatalf("error when connecting to database: %s", err)
 	}
 
+	// Try to connect to the Pub-Sub broker server.
 	err = broker.Connect()
 	if err != nil {
-		log.Fatalf("error when connecting to NATS server: %s", err)
+		log.Fatalf("error when connecting to Apache Pulsar broker server: %s", err)
 	}
+
 
 	GroupMessageRepository = repository.NewGroupMessageDB(db.DB)
 	GroupRepository = repository.NewGroupRepositoryDB(db.DB)
@@ -60,6 +63,12 @@ func Setup() {
 	UserUseCase = usecase.NewUserUseCaseImpl(
 		UserRepository,
 		PrivateMessageUseCase,
+		GroupMessageUseCase,
+	)
+
+	UserPubSubController = *pubsubcontroller.NewUserPubController(
+		*broker.GetClient(),
+		UserUseCase,
 		GroupMessageUseCase,
 	)
 }

@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/karlosdaniel451/message-chat/api/cli/clicontroller"
+	"github.com/karlosdaniel451/message-chat/client/cli/clicontroller"
 	"github.com/karlosdaniel451/message-chat/cmd/setup"
 	"github.com/karlosdaniel451/message-chat/domain/model"
 )
@@ -135,7 +135,7 @@ func main() {
 				continue
 			}
 
-			sentMessage, err := clicontroller.SendToUser(reader)
+			sentMessage, err := clicontroller.SendToUser(reader, currentUser)
 			if err != nil {
 				log.Printf("error when sending message to user: %s", err)
 				continue
@@ -163,14 +163,15 @@ func main() {
 				continue
 			}
 
-			messagesChan, err := clicontroller.ConnectToUser(reader, currentUser)
+			receivedMessagesChannel, err := clicontroller.ConnectToUser(reader, currentUser)
 			if err != nil {
 				log.Printf("error when connecting to user: %s", err)
 				continue
 			}
 
-			// Print messages as they are received (consumed)
-			for message := range messagesChan {
+			fmt.Print("ready to receive messages!")
+			// Print messages as they are received (consumed).
+			for message := range receivedMessagesChannel {
 				fmt.Printf("%s | %d: %s",
 					message.CreatedAt.String(),
 					message.SenderId,

@@ -115,15 +115,8 @@ func ListGroups() ([]*model.Group, error) {
 	return setup.GroupUseCase.GetAll()
 }
 
-func SendToUser(reader *bufio.Reader) (sentMessage *model.PrivateMessage, err error) {
-	var senderId int
+func SendToUser(reader *bufio.Reader, currentUser *model.User) (sentMessage *model.PrivateMessage, err error) {
 	var receiverId int
-
-	fmt.Print("senderId: ")
-	_, err = fmt.Scanf("%d", &senderId)
-	if err != nil {
-		return nil, err
-	}
 
 	fmt.Print("receiverId: ")
 	_, err = fmt.Scanf("%d", &receiverId)
@@ -141,7 +134,7 @@ func SendToUser(reader *bufio.Reader) (sentMessage *model.PrivateMessage, err er
 
 	sentMessage, err = setup.UserUseCase.SendMessageToUser(&model.PrivateMessage{
 		TextContent: messageContent,
-		SenderId:    uint(senderId),
+		SenderId:    currentUser.ID,
 		ReceiverId:  uint(receiverId),
 	})
 
@@ -181,7 +174,11 @@ func SendToGroup(reader *bufio.Reader) (sentMessage *model.GroupMessage, err err
 	return sentMessage, err
 }
 
-func ConnectToUser(reader *bufio.Reader, currentUser *model.User) (chan model.PrivateMessage, error) {
+func ConnectToUser(
+	reader *bufio.Reader,
+	currentUser *model.User,
+) (<-chan model.PrivateMessage, error) {
+
 	// read email address of user to be connected to
 	fmt.Print("email of user to be connected to: ")
 	email, err := reader.ReadString('\n')
@@ -203,7 +200,7 @@ func ConnectToUser(reader *bufio.Reader, currentUser *model.User) (chan model.Pr
 	return privateMessagesChan, nil
 }
 
-func ConnectToGroup(reader *bufio.Reader, currentUser *model.User) (chan model.GroupMessage, error){
+func ConnectToGroup(reader *bufio.Reader, currentUser *model.User) (<- chan model.GroupMessage, error) {
 	// read name of group to be connected to
 	fmt.Print("name of group to be connected to: ")
 	groupName, err := reader.ReadString('\n')
@@ -218,7 +215,9 @@ func ConnectToGroup(reader *bufio.Reader, currentUser *model.User) (chan model.G
 		return nil, err
 	}
 
-	groupMessagesChan := setup.UserPubSubController.ConnectToGroup(groupToBeConnectedTo.ID)
+	groupMessagesChan := setup.UserPubSubController.ConnectToGroup(
+		currentUser.ID, groupToBeConnectedTo.ID,
+	)
 
 	return groupMessagesChan, nil
 }
