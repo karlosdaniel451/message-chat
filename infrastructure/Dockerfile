@@ -15,7 +15,7 @@ RUN go mod download
 COPY ../ ./
 
 # Build the executable file.
-RUN go build -v -o server ./cmd/main.go
+RUN go build -v -o main ./cmd/main.go
 
 # Use multi-image container for a lean production container.
 FROM alpine
@@ -26,7 +26,7 @@ RUN apk update && apk add postgresql
 WORKDIR /bin
 
 # Copy the binary to the production image from the builder stage.
-COPY --from=builder /app/server /bin/server
+COPY --from=builder /app/main /bin/main
 
 # Run the web service on container startup.
-ENTRYPOINT [ "/bin/server" ]
+# ENTRYPOINT [ "/bin/main" ]

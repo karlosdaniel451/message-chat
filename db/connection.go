@@ -10,16 +10,22 @@ import (
 )
 
 var (
-	host     = os.Getenv("DB_HOST")
-	user     = os.Getenv("DB_USER")
-	port     = os.Getenv("DB_PORT")
-	name     = os.Getenv("DB_NAME")
-	password = os.Getenv("DB_PASSWORD")
+	host     string
+	user     string
+	port     string
+	name     string
+	password string
 )
 
 var DB *gorm.DB
 
 func Connect() error {
+	host = os.Getenv("DB_HOST")
+	user = os.Getenv("DB_USER")
+	port = os.Getenv("DB_PORT")
+	name = os.Getenv("DB_NAME")
+	password = os.Getenv("DB_PASSWORD")
+
 	var err error
 
 	connectionConfig := fmt.Sprintf(
@@ -34,8 +40,8 @@ func Connect() error {
 	}
 
 	err = DB.AutoMigrate(
-		&model.GroupMessage{},
 		&model.Group{},
+		&model.GroupMessage{},
 		&model.PrivateMessage{},
 		&model.User{},
 		// Setup other models here

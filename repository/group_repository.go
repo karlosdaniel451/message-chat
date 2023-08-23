@@ -11,6 +11,7 @@ import (
 type GroupRepository interface {
 	Create(group *model.Group) (*model.Group, error)
 	GetById(id uint) (*model.Group, error)
+	GetByName(name string) (*model.Group, error)
 	DeleteById(id uint) error
 	GetAll() ([]*model.Group, error)
 }
@@ -19,8 +20,8 @@ type GroupRepositoryDB struct {
 	db *gorm.DB
 }
 
-func NewGroupRepositoryDB(db *gorm.DB) *GroupMessageRepositoryDB {
-	return &GroupMessageRepositoryDB{db: db}
+func NewGroupRepositoryDB(db *gorm.DB) *GroupRepositoryDB {
+	return &GroupRepositoryDB{db: db}
 }
 
 func (repository GroupRepositoryDB) Create(
@@ -49,6 +50,22 @@ func (repository GroupRepositoryDB) GetById(id uint) (*model.Group, error) {
 		if result.Error.Error() == gorm.ErrRecordNotFound.Error() {
 			return nil, errs.NotFoundError{
 				Message: fmt.Sprintf("there is no group with id %d", id),
+			}
+		}
+		return nil, result.Error
+	}
+
+	return &group, nil
+}
+
+func (repository GroupRepositoryDB) GetByName(name string) (*model.Group, error) {
+	var group model.Group
+
+	result := repository.db.First(&group, "name = ?", name)
+	if result.Error != nil {
+		if result.Error.Error() == gorm.ErrRecordNotFound.Error() {
+			return nil, errs.NotFoundError{
+				Message: fmt.Sprintf("there is no group with name %s", name),
 			}
 		}
 		return nil, result.Error

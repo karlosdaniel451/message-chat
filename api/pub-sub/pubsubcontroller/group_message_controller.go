@@ -1,4 +1,4 @@
-package controller
+package pubsubcontroller
 
 import (
 	"fmt"
@@ -12,26 +12,20 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type UserController struct {
-	natsConn            nats.Conn
-	useCase             usecase.UserUseCase
-	groupMessageUseCase usecase.GroupMessageUseCase
+type GroupMessageController struct {
+	natsConn nats.Conn
+	useCase  usecase.GroupMessageUseCase
 }
 
-func NewUserController(
-	useCase usecase.UserUseCase,
-	groupMessageUseCase usecase.GroupMessageUseCase,
-) *UserController {
-
-	return &UserController{useCase: useCase, groupMessageUseCase: groupMessageUseCase}
+func NewGroupMessageController(useCase usecase.GroupMessageUseCase) *GroupMessageController {
+	return &GroupMessageController{useCase: useCase}
 }
 
-func (controller *UserController) SendMessage(
+func (controller *GroupMessageController) SendMessage(
 	groupMessage *model.GroupMessage,
 ) (*model.GroupMessage, error) {
 
-	createdGroupMessage, err := controller.useCase.SendMessageToGroup(groupMessage)
-
+	createdGroupMessage, err := controller.useCase.Create(groupMessage)
 	if err != nil {
 		return nil, fmt.Errorf("error when inserting group message to database: %s", err)
 	}
@@ -62,14 +56,9 @@ func (controller *UserController) SendMessage(
 	return createdGroupMessage, nil
 }
 
-func (controller *GroupMessageController) ReceiveMessagesFromGroup(
-	msg *nats.Msg,
-	groupId uint,
-) chan model.GroupMessage {
+// func (controller *GroupMessageController) ReceiveMessages(msg *nats.Msg) *model.GroupMessage {
+// 	// TODO
+// 	controller.natsConn.ChanSubscribe()
 
-	msgChannel := make(chan *nats.Msg)
-
-	controller.natsConn.ChanSubscribe(strconv.FormatUint(uint64(groupId), 10), msgChannel)
-
-	return nil
-}
+// 	return nil
+// }

@@ -1,4 +1,4 @@
-package controller
+package pubsubcontroller
 
 import (
 	"github.com/karlosdaniel451/message-chat/usecase"

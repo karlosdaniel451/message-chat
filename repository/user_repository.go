@@ -67,7 +67,7 @@ func (repository UserRepositoryDB) GetByName(name string) ([]*model.User, error)
 func (repository UserRepositoryDB) GetByEmailAddress(emailAddress string) (*model.User, error) {
 	var user model.User
 
-	result := repository.db.First(&user, "id = ?", emailAddress)
+	result := repository.db.First(&user, "email_address = ?", emailAddress)
 	if result.Error != nil {
 		if result.Error.Error() == gorm.ErrRecordNotFound.Error() {
 			return nil, errs.NotFoundError{

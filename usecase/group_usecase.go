@@ -6,8 +6,9 @@ import (
 )
 
 type GroupUseCase interface {
-	Create(message *model.Group) (*model.Group, error)
+	Create(group *model.Group) (*model.Group, error)
 	GetById(id uint) (*model.Group, error)
+	GetByName(name string) (*model.Group, error)
 	DeleteById(id uint) error
 	GetAll() ([]*model.Group, error)
 }
@@ -17,7 +18,7 @@ type GroupUseCaseImpl struct {
 }
 
 func NewGroupUseCaseImpl(
-	repository repository.GroupRepositoryDB,
+	repository repository.GroupRepository,
 ) GroupUseCaseImpl {
 
 	return GroupUseCaseImpl{repository: repository}
@@ -32,6 +33,10 @@ func (useCase GroupUseCaseImpl) Create(
 
 func (useCase GroupUseCaseImpl) GetById(id uint) (*model.Group, error) {
 	return useCase.repository.GetById(id)
+}
+
+func (useCase GroupUseCaseImpl) GetByName(name string) (*model.Group, error) {
+	return useCase.repository.GetByName(name)
 }
 
 func (useCase GroupUseCaseImpl) DeleteById(id uint) error {

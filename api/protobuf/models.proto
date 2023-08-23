@@ -29,16 +29,18 @@ message User {
 	string name = 2;
 	string email_address = 3;
     repeated PrivateMessage sent_private_messages = 4;
-    google.protobuf.Timestamp created_at = 5;
-    google.protobuf.Timestamp updated_at = 6;
-    google.protobuf.Timestamp deleted_at = 7;
+    repeated PrivateMessage received_private_messages = 5;
+    repeated PrivateMessage sent_group_messages = 6;
+    google.protobuf.Timestamp created_at = 7;
+    google.protobuf.Timestamp updated_at = 8;
+    google.protobuf.Timestamp deleted_at = 9;
 }
 
 message Group {
     string id = 1;
 	string name = 2;
 	string description = 3;
-    repeated PrivateMessage received_= 4;
+    repeated GroupMessage messages = 4;
     google.protobuf.Timestamp created_at = 5;
     google.protobuf.Timestamp updated_at = 6;
     google.protobuf.Timestamp deleted_at = 7;

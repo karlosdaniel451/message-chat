@@ -6,9 +6,19 @@ volumes:
 
 networks:
   api-network:
+  nats-network:
 
 
 services:
+  broker-server:
+    image: nats:latest
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+      - "6222:6222"
+    networks:
+      - nats-network
+
   db:
     image: postgres:15.3-bullseye
     environment:
@@ -30,23 +40,24 @@ services:
     networks:
       - api-network
 
-  api:
-    build:
-      context: ../
-      dockerfile: ./infrastructure/Dockerfile
-    environment:
-      - API_PORT=${API_PORT}
-      - DB_HOST=${DB_HOST}
-      - DB_USER=${DB_USER}
-      - DB_PORT=${DB_PORT}
-      - DB_NAME=${DB_NAME}
-      - DB_PASSWORD=${DB_PASSWORD}
-    ports:
-      - "${API_PORT}:${API_PORT}"
-    depends_on:
-      db:
-        condition: service_healthy
-    command: >
-      bash -c "/usr/bin/psql postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT} -c 'drop database if exists ${DB_NAME}' && /usr/bin/psql postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT} -c 'create database ${DB_NAME}'"
-    networks:
-      - api-network
+  # api:
+  #   build:
+  #     context: ../
+  #     dockerfile: ./infrastructure/Dockerfile
+  #   environment:
+  #     - DB_HOST=${DB_HOST}
+  #     - DB_USER=${DB_USER}
+  #     - DB_PORT=${DB_PORT}
+  #     - DB_NAME=${DB_NAME}
+  #     - DB_PASSWORD=${DB_PASSWORD}
+  #     - BROKER_HOST=${BROKER_HOST}
+  #     - BROKER_PORT=${BROKER_PORT}
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     broker-server:
+  #       condition: service_started
+  #   command: >
+  #     bash -c "/usr/bin/psql postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT} -c 'drop database if exists ${DB_NAME}' && /usr/bin/psql postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT} -c 'create database ${DB_NAME}'"
+  #   networks:
+  #     - api-network
