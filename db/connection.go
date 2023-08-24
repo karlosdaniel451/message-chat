@@ -7,6 +7,7 @@ import (
 	"github.com/karlosdaniel451/message-chat/domain/model"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var (
@@ -33,7 +34,10 @@ func Connect() error {
 		host, user, password, name, port,
 	)
 
-	DB, err = gorm.Open(postgres.Open(connectionConfig), &gorm.Config{})
+	DB, err = gorm.Open(
+		postgres.Open(connectionConfig), 
+		&gorm.Config{Logger: logger.Discard},
+	)
 
 	if err != nil {
 		return err

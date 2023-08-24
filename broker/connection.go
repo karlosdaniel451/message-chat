@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/apache/pulsar-client-go/pulsar"
+	"github.com/apache/pulsar-client-go/pulsar/log"
 )
 
 var (
@@ -28,7 +29,7 @@ func Connect() error {
 	var err error
 	client, err = pulsar.NewClient(pulsar.ClientOptions{
 		URL: url,
-		// Logger: log.DefaultNopLogger(),
+		Logger: log.DefaultNopLogger(),
 	})
 
 	return err

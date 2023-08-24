@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -135,13 +136,17 @@ func main() {
 				continue
 			}
 
-			sentMessage, err := clicontroller.SendToUser(reader, currentUser)
+			sentMessage, err := clicontroller.SendToUser(
+				context.Background(),
+				reader,
+				currentUser,
+			)
 			if err != nil {
 				log.Printf("error when sending message to user: %s", err)
 				continue
 			}
 
-			log.Printf("message sent: %+v", sentMessage)
+			log.Printf("message sent: %s", sentMessage)
 
 		case "sendToGroup":
 			if currentUser == nil {
@@ -165,18 +170,13 @@ func main() {
 
 			receivedMessagesChannel, err := clicontroller.ConnectToUser(reader, currentUser)
 			if err != nil {
-				log.Printf("error when connecting to user: %s", err)
+				fmt.Printf("error when connecting to user: %s", err)
 				continue
 			}
 
-			fmt.Print("ready to receive messages!")
 			// Print messages as they are received (consumed).
 			for message := range receivedMessagesChannel {
-				fmt.Printf("%s | %d: %s",
-					message.CreatedAt.String(),
-					message.SenderId,
-					message.TextContent,
-				)
+				fmt.Printf("%d: %s\n", message.SenderId, message.TextContent)
 			}
 
 		case "connectToGroup":
@@ -187,17 +187,13 @@ func main() {
 
 			messagesChan, err := clicontroller.ConnectToGroup(reader, currentUser)
 			if err != nil {
-				log.Printf("error when connecting to group: %s", err)
+				fmt.Printf("error when connecting to group: %s", err)
 				continue
 			}
 
-			// Print messages as they are received (consumed)
+			// Print messages as they are received (consumed).
 			for message := range messagesChan {
-				fmt.Printf("%s | %d: %s",
-					message.CreatedAt.String(),
-					message.SenderId,
-					message.TextContent,
-				)
+				fmt.Printf("%d: %s\n", message.SenderId, message.TextContent)
 			}
 
 		case "exit":

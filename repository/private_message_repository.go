@@ -12,6 +12,7 @@ type PrivateMessageRepository interface {
 	Create(message *model.PrivateMessage) (*model.PrivateMessage, error)
 	GetById(id uint) (*model.PrivateMessage, error)
 	DeleteById(id uint) error
+	GetChatConversation(senderId, receiverId uint) ([]*model.PrivateMessage, error)
 	GetAll() ([]*model.PrivateMessage, error)
 }
 
@@ -75,6 +76,28 @@ func (repository PrivateMessageRepositoryDB) DeleteById(id uint) error {
 	}
 
 	return nil
+}
+
+func (repository PrivateMessageRepositoryDB) GetChatConversation(
+	senderId uint,
+	receiverId uint,
+) ([]*model.PrivateMessage, error) {
+
+	chatPrivateMessages := make([]*model.PrivateMessage, 0)
+
+	// Filter chat messages.
+	result := repository.db.
+		Where(
+			"sender_id = ? AND receiver_id = ? OR sender_id = ? AND receiver_id = ?",
+			senderId, receiverId, receiverId, senderId,
+		).
+		Find(&chatPrivateMessages)
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return chatPrivateMessages, nil
 }
 
 func (repository PrivateMessageRepositoryDB) GetAll() ([]*model.PrivateMessage, error) {

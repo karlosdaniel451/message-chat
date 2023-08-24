@@ -2,6 +2,7 @@ package clicontroller
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -115,10 +116,15 @@ func ListGroups() ([]*model.Group, error) {
 	return setup.GroupUseCase.GetAll()
 }
 
-func SendToUser(reader *bufio.Reader, currentUser *model.User) (sentMessage *model.PrivateMessage, err error) {
+func SendToUser(
+	ctx context.Context,
+	reader *bufio.Reader,
+	currentUser *model.User,
+) (sentMessage *model.PrivateMessage, err error) {
+
 	var receiverId int
 
-	fmt.Print("receiverId: ")
+	fmt.Print("receiver Id: ")
 	_, err = fmt.Scanf("%d", &receiverId)
 	if err != nil {
 		return nil, err
@@ -132,11 +138,14 @@ func SendToUser(reader *bufio.Reader, currentUser *model.User) (sentMessage *mod
 
 	messageContent = strings.TrimSuffix(messageContent, "\n")
 
-	sentMessage, err = setup.UserUseCase.SendMessageToUser(&model.PrivateMessage{
-		TextContent: messageContent,
-		SenderId:    currentUser.ID,
-		ReceiverId:  uint(receiverId),
-	})
+	sentMessage, err = setup.UserPubSubController.SendMessageToUser(
+		ctx,
+		&model.PrivateMessage{
+			TextContent: messageContent,
+			SenderId:    currentUser.ID,
+			ReceiverId:  uint(receiverId),
+		},
+	)
 
 	return sentMessage, err
 }
@@ -145,13 +154,13 @@ func SendToGroup(reader *bufio.Reader) (sentMessage *model.GroupMessage, err err
 	var senderId int
 	var groupId int
 
-	fmt.Print("senderId: ")
+	fmt.Print("sender id: ")
 	_, err = fmt.Scanf("%d", &senderId)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Print("groupId: ")
+	fmt.Print("group id: ")
 	_, err = fmt.Scanf("%d", &groupId)
 	if err != nil {
 		return nil, err
@@ -193,6 +202,19 @@ func ConnectToUser(
 		return nil, err
 	}
 
+	// Retrieve past messages.
+	pastMessages, err := setup.PrivateMessageUseCase.GetChatConversation(
+		currentUser.ID, userToBeConnectedTo.ID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error when retrieving past messages: %s", err)
+	}
+
+	// Print past messages.
+	for _, message := range pastMessages {
+		fmt.Printf("%d: %s\n", message.SenderId, message.TextContent)
+	}
+
 	privateMessagesChan := setup.UserPubSubController.ConnectToUser(
 		userToBeConnectedTo.ID, currentUser.ID,
 	)
@@ -200,7 +222,7 @@ func ConnectToUser(
 	return privateMessagesChan, nil
 }
 
-func ConnectToGroup(reader *bufio.Reader, currentUser *model.User) (<- chan model.GroupMessage, error) {
+func ConnectToGroup(reader *bufio.Reader, currentUser *model.User) (<-chan model.GroupMessage, error) {
 	// read name of group to be connected to
 	fmt.Print("name of group to be connected to: ")
 	groupName, err := reader.ReadString('\n')
@@ -221,5 +243,3 @@ func ConnectToGroup(reader *bufio.Reader, currentUser *model.User) (<- chan mode
 
 	return groupMessagesChan, nil
 }
-
-//

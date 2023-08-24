@@ -46,21 +46,21 @@ func (controller *UserController) SendMessageToUser(
 	protoMessage, err := conversions.ModelPrivateMessagetoProto(privateMessage)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"error when serializing convertion private message model to protobuf model: %s",
+			"error when cnoverting private message model to protobuf model: %s",
 			err,
 		)
 	}
 
-	serializedMessage, err := proto.Marshal(protoMessage)
+	marshalled, err := proto.Marshal(protoMessage)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"error when serializing groupMessage protobuf model: %s",
+			"error when marshalling private message: %s",
 			err,
 		)
 	}
 
 	// The topic name is determined by the receiving User id.
-	topic := strconv.FormatUint(uint64(privateMessage.ID), 10)
+	topic := strconv.FormatUint(uint64(privateMessage.ReceiverId), 10)
 
 	producer, err := controller.pulsarClient.CreateProducer(pulsar.ProducerOptions{
 		Topic: topic,
@@ -68,12 +68,16 @@ func (controller *UserController) SendMessageToUser(
 	if err != nil {
 		return nil, fmt.Errorf("error when creating Pulsar producer: %s", err)
 	}
+	log.Print("producer created sucessfully")
 
 	defer producer.Close()
 
-	producer.Send(ctx, &pulsar.ProducerMessage{
-		Payload: serializedMessage,
+	_, err = producer.Send(ctx, &pulsar.ProducerMessage{
+		Payload: marshalled,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("error when sending private message to user")
+	}
 
 	return createdPrivateMessage, nil
 }
@@ -143,19 +147,29 @@ func (controller *UserController) ConnectToUser(
 	if err != nil {
 		log.Fatalf("error when subscribing to a Pulsar topic: %s", err)
 	}
-	defer consumer.Close()
+
+	// defer consumer.Close()
 
 	go func() {
-		defer close(privateMessagesChannel)
+		// defer close(privateMessagesChannel)
+		defer func() {
+			consumer.Close()
+			close(privateMessagesChannel)
+			log.Print("Private Messages Subscriber Channel closed")
+		}()
 
 		for pulsarMessage := range pulsarMessagesChannel {
 			var protobufMessage protobuf.PrivateMessage
 
-			proto.Unmarshal(pulsarMessage.Payload(), &protobufMessage)
+			err := proto.Unmarshal(pulsarMessage.Payload(), &protobufMessage)
+			if err != nil {
+				log.Printf("error when converting unmarshalling protobuf: %s",
+					err)
+				continue
+			}
 
 			// Filter the messages received from other users
 			if protobufMessage.SenderId != strconv.FormatUint(uint64(senderId), 10) {
-				// return
 				continue
 			}
 
@@ -167,6 +181,7 @@ func (controller *UserController) ConnectToUser(
 			}
 
 			privateMessagesChannel <- *modelMessage
+			consumer.Ack(pulsarMessage.Message)
 		}
 	}()
 
