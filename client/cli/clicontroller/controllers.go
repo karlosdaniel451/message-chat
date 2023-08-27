@@ -150,15 +150,13 @@ func SendToUser(
 	return sentMessage, err
 }
 
-func SendToGroup(reader *bufio.Reader) (sentMessage *model.GroupMessage, err error) {
-	var senderId int
-	var groupId int
+func SendToGroup(
+	ctx context.Context,
+	reader *bufio.Reader,
+	currentUser *model.User,
+) (sentMessage *model.GroupMessage, err error) {
 
-	fmt.Print("sender id: ")
-	_, err = fmt.Scanf("%d", &senderId)
-	if err != nil {
-		return nil, err
-	}
+	var groupId int
 
 	fmt.Print("group id: ")
 	_, err = fmt.Scanf("%d", &groupId)
@@ -174,40 +172,47 @@ func SendToGroup(reader *bufio.Reader) (sentMessage *model.GroupMessage, err err
 
 	messageContent = strings.TrimSuffix(messageContent, "\n")
 
-	sentMessage, err = setup.UserUseCase.SendMessageToGroup(&model.GroupMessage{
-		TextContent: messageContent,
-		SenderId:    uint(senderId),
-		GroupId:     uint(groupId),
-	})
+	sentMessage, err = setup.UserPubSubController.SendMessageToGroup(
+		ctx,
+		&model.GroupMessage{
+			TextContent: messageContent,
+			SenderId:    currentUser.ID,
+			GroupId:     uint(groupId),
+		},
+	)
+
+	// sentMessage, err = setup.UserUseCase.SendMessageToGroup(&model.GroupMessage{
+	// 	TextContent: messageContent,
+	// 	SenderId:    uint(currentUser.ID),
+	// 	GroupId:     uint(groupId),
+	// })
 
 	return sentMessage, err
 }
 
 func ConnectToUser(
-	reader *bufio.Reader,
-	currentUser *model.User,
-) (<-chan model.PrivateMessage, error) {
+	ctx context.Context, reader *bufio.Reader, currentUser *model.User,
+) (<-chan model.PrivateMessage, *model.User, error) {
 
-	// read email address of user to be connected to
+	// Read email address of user to be connected to.
 	fmt.Print("email of user to be connected to: ")
 	email, err := reader.ReadString('\n')
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-
 	email = strings.TrimSuffix(email, "\n")
 
 	userToBeConnectedTo, err := setup.UserUseCase.GetByEmailAddress(email)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Retrieve past messages.
-	pastMessages, err := setup.PrivateMessageUseCase.GetChatConversation(
+	pastMessages, err := setup.PrivateMessageUseCase.GetChatMessages(
 		currentUser.ID, userToBeConnectedTo.ID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("error when retrieving past messages: %s", err)
+		return nil, nil, fmt.Errorf("error when retrieving past messages: %s", err)
 	}
 
 	// Print past messages.
@@ -216,13 +221,17 @@ func ConnectToUser(
 	}
 
 	privateMessagesChan := setup.UserPubSubController.ConnectToUser(
-		userToBeConnectedTo.ID, currentUser.ID,
+		ctx, userToBeConnectedTo.ID, currentUser.ID,
 	)
 
-	return privateMessagesChan, nil
+	return privateMessagesChan, userToBeConnectedTo, nil
 }
 
-func ConnectToGroup(reader *bufio.Reader, currentUser *model.User) (<-chan model.GroupMessage, error) {
+func ConnectToGroup(
+	reader *bufio.Reader,
+	currentUser *model.User,
+) (<-chan model.GroupMessage, error) {
+
 	// read name of group to be connected to
 	fmt.Print("name of group to be connected to: ")
 	groupName, err := reader.ReadString('\n')
@@ -234,7 +243,13 @@ func ConnectToGroup(reader *bufio.Reader, currentUser *model.User) (<-chan model
 
 	groupToBeConnectedTo, err := setup.GroupUseCase.GetByName(groupName)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error when retrieving group: %s", err)
+	}
+
+	// Print past messages.
+	pastMessages := groupToBeConnectedTo.ReceivedGroupMessages
+	for _, message := range pastMessages {
+		fmt.Printf("%d: %s\n", message.SenderId, message.TextContent)
 	}
 
 	groupMessagesChan := setup.UserPubSubController.ConnectToGroup(

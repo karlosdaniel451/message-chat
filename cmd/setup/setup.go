@@ -51,7 +51,6 @@ func Setup() {
 		log.Fatalf("error when connecting to Apache Pulsar broker server: %s", err)
 	}
 
-
 	GroupMessageRepository = repository.NewGroupMessageDB(db.DB)
 	GroupRepository = repository.NewGroupRepositoryDB(db.DB)
 	PrivateMessageRepository = repository.NewPrivateMessageDB(db.DB)
@@ -64,10 +63,11 @@ func Setup() {
 		UserRepository,
 		PrivateMessageUseCase,
 		GroupMessageUseCase,
+		GroupUseCase,
 	)
 
 	UserPubSubController = *pubsubcontroller.NewUserPubController(
-		*broker.GetClient(),
+		broker.GetConn(),
 		UserUseCase,
 		GroupMessageUseCase,
 	)

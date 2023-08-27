@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/karlosdaniel451/message-chat/domain/model"
 	"github.com/karlosdaniel451/message-chat/errs"
@@ -21,21 +22,24 @@ type UserUseCase interface {
 }
 
 type UserUseCaseImpl struct {
-	repository           repository.UserRepository
+	repository            repository.UserRepository
 	privateMessageUseCase PrivateMessageUseCase
-	groupMessageUseCase  GroupMessageUseCase
+	groupMessageUseCase   GroupMessageUseCase
+	groupUseCase GroupUseCase
 }
 
 func NewUserUseCaseImpl(
 	repository repository.UserRepository,
 	privateMessageUseCase PrivateMessageUseCase,
 	groupMessageUseCase GroupMessageUseCase,
+	groupUseCase GroupUseCase,
 ) UserUseCaseImpl {
 
 	return UserUseCaseImpl{
-		repository:           repository,
+		repository:            repository,
 		privateMessageUseCase: privateMessageUseCase,
-		groupMessageUseCase:  groupMessageUseCase,
+		groupMessageUseCase:   groupMessageUseCase,
+		groupUseCase:   groupUseCase,
 	}
 }
 
@@ -81,10 +85,12 @@ func (useCase UserUseCaseImpl) SendMessageToGroup(
 	message *model.GroupMessage,
 ) (*model.GroupMessage, error) {
 
-	_, err := useCase.GetById(message.GroupId)
+	_, err := useCase.groupUseCase.GetById(message.GroupId)
 	if err != nil {
 		if errors.As(err, &errs.NotFoundError{}) {
-			return nil, errs.NotFoundError{Message: "group not found"}
+			return nil, errs.NotFoundError{
+				Message: fmt.Sprintf("group with id %d not found", message.GroupId),
+			}
 		}
 	}
 

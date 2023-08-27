@@ -55,20 +55,20 @@ services:
     networks:
       - net
 
-  broker-server:
-    image: apachepulsar/pulsar:3.1.0
-    command: bin/pulsar standalone
-    ports:
-      - 6650:6650
-      - 8080:8080
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://pulsar:8080/metrics/" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
-    volumes:
-      - pulsardata:/pulsar/data
-      - pulsarconf:/pulsar/conf
-    networks:
-      - net
+  # broker-server:
+  #   image: apachepulsar/pulsar:3.1.0
+  #   command: bin/pulsar standalone
+  #   ports:
+  #     - 6650:6650
+  #     - 8080:8080
+  #   healthcheck:
+  #     test: [ "CMD", "curl", "-f", "http://pulsar:8080/metrics/" ]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 5s
+  #   volumes:
+  #     - pulsardata:/pulsar/data
+  #     - pulsarconf:/pulsar/conf
+  #   networks:
+  #     - net

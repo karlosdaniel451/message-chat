@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 
+	// "sync"
+
 	"github.com/karlosdaniel451/message-chat/client/cli/clicontroller"
 	"github.com/karlosdaniel451/message-chat/cmd/setup"
 	"github.com/karlosdaniel451/message-chat/domain/model"
@@ -154,7 +156,11 @@ func main() {
 				continue
 			}
 
-			sentMessage, err := clicontroller.SendToGroup(reader)
+			sentMessage, err := clicontroller.SendToGroup(
+				context.Background(),
+				reader,
+				currentUser,
+			)
 			if err != nil {
 				log.Printf("error when sending message to group: %s", err)
 				continue
@@ -168,16 +174,59 @@ func main() {
 				continue
 			}
 
-			receivedMessagesChannel, err := clicontroller.ConnectToUser(reader, currentUser)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			receivedMessagesChannel, userConnectedTo, err := clicontroller.ConnectToUser(
+				ctx, reader, currentUser,
+			)
 			if err != nil {
 				fmt.Printf("error when connecting to user: %s", err)
 				continue
 			}
 
+			// var wg sync.WaitGroup
+			done := make(chan struct{})
+
+			// Read and send new messages to the connected User.
+			// wg.Add(1)
+			go func() {
+				for {
+					newMessageContent, err := reader.ReadString('\n')
+					if err != nil {
+						fmt.Printf("error when reading new message: %s", err)
+						return
+					}
+					newMessageContent = strings.TrimSuffix(newMessageContent, "\n")
+
+					if newMessageContent == `\exit` {
+						break
+					}
+
+					_, err = setup.UserPubSubController.SendMessageToUser(
+						context.Background(),
+						&model.PrivateMessage{
+							TextContent: newMessageContent,
+							SenderId:    currentUser.ID,
+							ReceiverId:  userConnectedTo.ID,
+						},
+					)
+					if err != nil {
+						log.Printf("error when sending message to user: %s", err)
+						continue
+					}
+				}
+				cancel()
+				done <- struct{}{}
+			}()
+
 			// Print messages as they are received (consumed).
 			for message := range receivedMessagesChannel {
 				fmt.Printf("%d: %s\n", message.SenderId, message.TextContent)
 			}
+
+			<-done
+			fmt.Println("got here!!!")
 
 		case "connectToGroup":
 			if currentUser == nil {

@@ -7,13 +7,11 @@ import (
 	// "github.com/karlosdaniel451/message-chat/api/protobuf"
 	// "github.com/karlosdaniel451/message-chat/domain/model"
 	"github.com/karlosdaniel451/message-chat/usecase"
-	"github.com/nats-io/nats.go"
 	// "google.golang.org/protobuf/proto"
 	// "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type GroupMessageController struct {
-	natsConn nats.Conn
 	useCase  usecase.GroupMessageUseCase
 }
 

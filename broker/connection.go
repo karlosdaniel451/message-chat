@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/apache/pulsar-client-go/pulsar"
-	"github.com/apache/pulsar-client-go/pulsar/log"
+	"github.com/nats-io/nats.go"
 )
 
 var (
@@ -13,10 +12,10 @@ var (
 	brokerPort string
 )
 
-var client pulsar.Client
+var conn *nats.Conn
 
-func GetClient() *pulsar.Client {
-	return &client
+func GetConn() *nats.Conn {
+	return conn
 }
 
 // Connect to a NATS server and assign the obtained connection to `conn`
@@ -24,13 +23,10 @@ func Connect() error {
 	brokerHost = os.Getenv("BROKER_HOST")
 	brokerPort = os.Getenv("BROKER_PORT")
 
-	url := fmt.Sprintf("http://%s:%s", brokerHost, brokerPort)
+	url := fmt.Sprintf("nats://%s:%s", brokerHost, brokerPort)
 
 	var err error
-	client, err = pulsar.NewClient(pulsar.ClientOptions{
-		URL: url,
-		Logger: log.DefaultNopLogger(),
-	})
+	conn, err = nats.Connect(url)
 
 	return err
 }

@@ -9,7 +9,10 @@ type PrivateMessageUseCase interface {
 	Create(message *model.PrivateMessage) (*model.PrivateMessage, error)
 	GetById(id uint) (*model.PrivateMessage, error)
 	DeleteById(id uint) error
-	GetChatConversation(senderId, receiverId uint) ([]*model.PrivateMessage, error)
+
+	// Get all the private messages between two Users.
+	GetChatMessages(senderId, receiverId uint) ([]*model.PrivateMessage, error)
+
 	GetAll() ([]*model.PrivateMessage, error)
 }
 
@@ -39,7 +42,7 @@ func (useCase PrivateMessageUseCaselImpl) DeleteById(id uint) error {
 	return useCase.repository.DeleteById(id)
 }
 
-func (usecase PrivateMessageUseCaselImpl) GetChatConversation(
+func (usecase PrivateMessageUseCaselImpl) GetChatMessages(
 	senderId, receiverId uint,
 ) ([]*model.PrivateMessage, error) {
 
